@@ -1,6 +1,6 @@
-/* 
-  KRISHNA COLOUR - ASIAN PAINTS MANAGEMENT SYSTEM
-  Modern Minimalist Light Design System
+/*
+  KRISHNA COLOUR – ASIAN PAINTS
+  Customer Management System – Minimal Light Theme
 */
 
 :root {
@@ -11,38 +11,37 @@
   --accent-blue: #2563EB;
   --accent-asian-red: #DC2626;
   --color-success: #16A34A;
-  --color-warning: #D97706;
   --color-danger: #DC2626;
   --border-color: #E5E7EB;
   --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-  --hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
   --radius-md: 8px;
   --radius-lg: 12px;
 }
 
-/* Global App Container */
 .stApp {
   background-color: var(--bg-color);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Header & Branding Banner */
+/* Header */
 .brand-header-card {
-  background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
+  background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-left: 5px solid var(--accent-asian-red);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
-  margin-bottom: 20px;
+  padding: 14px 20px;
+  margin-bottom: 18px;
   box-shadow: var(--card-shadow);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .brand-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
@@ -50,33 +49,27 @@
 }
 
 .brand-subtitle {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--accent-asian-red);
   margin-top: 2px;
 }
 
-/* KPI Card */
+/* Summary KPI Cards */
 .kpi-card {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 18px 20px;
   box-shadow: var(--card-shadow);
-  transition: all 0.2s ease-in-out;
-  margin-bottom: 14px;
-}
-
-.kpi-card:hover {
-  box-shadow: var(--hover-shadow);
-  transform: translateY(-1px);
+  margin-bottom: 12px;
 }
 
 .kpi-label {
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   color: var(--text-secondary);
   margin-bottom: 6px;
 }
@@ -94,27 +87,20 @@
   margin-top: 6px;
 }
 
-/* Badges & Status Pills */
+/* Status Pills */
 .status-pill {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 9999px;
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
 }
 
 .status-pill-paid {
   background-color: #DCFCE7;
   color: #15803D;
   border: 1px solid #BBF7D0;
-}
-
-.status-pill-partial {
-  background-color: #FEF3C7;
-  color: #B45309;
-  border: 1px solid #FDE68A;
 }
 
 .status-pill-pending {
@@ -129,59 +115,27 @@
   border: 1px solid #BFDBFE;
 }
 
-/* Section Box */
+/* Content Card */
 .content-box {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 22px;
-  margin-bottom: 20px;
+  padding: 18px;
+  margin-bottom: 16px;
   box-shadow: var(--card-shadow);
 }
 
 .section-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Streamlit Native Adjustments */
-div[data-testid="stSidebar"] {
-  background-color: #FFFFFF;
-  border-right: 1px solid var(--border-color);
-}
-
-button[kind="primary"] {
-  background-color: var(--accent-blue) !important;
-  color: #FFFFFF !important;
-  border-radius: var(--radius-md) !important;
-  border: none !important;
-  font-weight: 600 !important;
-}
-
-button[kind="secondary"] {
-  border-radius: var(--radius-md) !important;
-  border: 1px solid var(--border-color) !important;
-  color: var(--text-primary) !important;
-}
-
-/* Tables styling */
-div[data-testid="stDataFrame"] {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  margin-bottom: 10px;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .brand-header-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    padding: 12px 14px;
   }
   .kpi-value {
     font-size: 20px;

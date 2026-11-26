@@ -1,14 +1,16 @@
 """
-SQLAlchemy ORM models for Krishna Colour - Asian Paints.
-Full relational design with numeric precision for all monetary values.
+SQLAlchemy ORM models for Krishna Colour – Asian Paints Customer Management System.
+Supports PostgreSQL (Supabase Cloud) and SQLite with strict relational integrity,
+Decimal monetary precision, multiple bills per customer, dual item entry (dropdown + custom),
+and Final Deal Amount payment tracking (without bargain remaining balance).
 """
 from datetime import datetime, date
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, String, Text, Numeric, Boolean,
-    DateTime, Date, ForeignKey, Index, func
+    DateTime, Date, ForeignKey, UniqueConstraint
 )
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -16,296 +18,253 @@ Base = declarative_base()
 
 
 class User(Base):
+    """Authorized system user (Admin / Staff)."""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(100), nullable=False)
-    role = Column(String(20), nullable=False, default="staff")  # 'admin' or 'staff'
+    role = Column(String(20), nullable=False, default="admin")  # 'admin' or 'staff'
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "username": self.username,
-            "full_name": self.full_name,
-            "role": self.role,
-            "is_active": self.is_active,
-            "created_at": self.created_at,
-        }
 
-
-class Category(Base):
-    __tablename__ = "categories"
+class ItemCategory(Base):
+    """Admin-managed paint categories for the item selection dropdown."""
+    __tablename__ = "item_categories"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(100), unique=True, nullable=False)
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Supplier(Base):
-    __tablename__ = "suppliers"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(150), nullable=False, index=True)
-    contact_person = Column(String(100), nullable=True)
-    mobile = Column(String(20), nullable=True)
-    email = Column(String(100), nullable=True)
-    address = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
-class Product(Base):
-    __tablename__ = "products"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    product_code = Column(String(50), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False, index=True)
-    brand = Column(String(100), default="Asian Paints", nullable=False, index=True)
-    category = Column(String(100), nullable=False, index=True)
-    subcategory = Column(String(100), nullable=True)
-    description = Column(Text, nullable=True)
-    unit = Column(String(20), default="Litre", nullable=False)
-    purchase_price = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    selling_price = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    current_stock = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    min_stock_level = Column(Numeric(12, 2), default=Decimal("5.00"), nullable=False)
-    status = Column(String(20), default="active", nullable=False)  # 'active', 'discontinued'
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    name = Column(String(120), unique=True, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    stock_transactions = relationship("StockTransaction", back_populates="product")
-    bill_items = relationship("BillItem", back_populates="product")
+    products = relationship(
+        "ItemProduct",
+        back_populates="category",
+        cascade="all, delete-orphan",
+        order_by="ItemProduct.id.asc()",
+    )
 
 
-class StockTransaction(Base):
-    __tablename__ = "stock_transactions"
+class ItemProduct(Base):
+    """Admin-managed paint products belonging to a category."""
+    __tablename__ = "item_products"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    transaction_code = Column(String(50), unique=True, nullable=False, index=True)
-    transaction_type = Column(String(30), nullable=False, index=True)
-    # Types: 'STOCK_IN', 'STOCK_OUT', 'BILL_SALE', 'SHOP_ISSUE', 'SHOP_RETURN', 'ADJUSTMENT', 'BILL_CANCEL'
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
-    quantity = Column(Numeric(12, 2), nullable=False)  # positive number
-    unit_price = Column(Numeric(12, 2), default=Decimal("0.00"))
-    reference_type = Column(String(30), nullable=True)  # 'SUPPLIER_INVOICE', 'BILL', 'SHOP_ISSUE', 'SHOP_RETURN', 'MANUAL'
-    reference_id = Column(String(100), nullable=True, index=True)
-    party_name = Column(String(150), nullable=True)
-    notes = Column(Text, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    is_cancelled = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("item_categories.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    product = relationship("Product", back_populates="stock_transactions")
+    __table_args__ = (
+        UniqueConstraint("category_id", "name", name="uq_category_product_name"),
+    )
+
+    category = relationship("ItemCategory", back_populates="products")
+    pack_sizes = relationship(
+        "ItemPackSize",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        order_by="ItemPackSize.sort_order.asc(), ItemPackSize.id.asc()",
+    )
+
+
+class ItemPackSize(Base):
+    """Admin-managed pack sizes for a product (e.g., 1 L, 4 L, 10 L, 20 L)."""
+    __tablename__ = "item_pack_sizes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, ForeignKey("item_products.id", ondelete="CASCADE"), nullable=False, index=True)
+    size_label = Column(String(80), nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("product_id", "size_label", name="uq_product_pack_size_label"),
+    )
+
+    product = relationship("ItemProduct", back_populates="pack_sizes")
 
 
 class Customer(Base):
+    """Customer directory record with unique KC-XXXXXX ID."""
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_code = Column(String(50), unique=True, nullable=False, index=True)
+    customer_code = Column(String(50), unique=True, nullable=False, index=True)  # KC-000001
     name = Column(String(150), nullable=False, index=True)
     mobile = Column(String(20), nullable=False, index=True)
-    alternate_mobile = Column(String(20), nullable=True)
-    address = Column(Text, nullable=True)
-    city = Column(String(100), nullable=True)
+    address = Column(Text, nullable=False, default="")
     notes = Column(Text, nullable=True)
-    status = Column(String(20), default="active", nullable=False)  # 'active', 'inactive'
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    bills = relationship("Bill", back_populates="customer")
-    payments = relationship("Payment", back_populates="customer")
+    bills = relationship(
+        "CustomerBill",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        order_by="CustomerBill.bill_date.desc(), CustomerBill.id.desc()",
+    )
+    payments = relationship(
+        "BillPayment",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        order_by="BillPayment.payment_date.desc(), BillPayment.id.desc()",
+    )
+
+    @property
+    def total_final_deal_amount(self) -> Decimal:
+        return sum((b.effective_final_amount for b in self.bills), Decimal("0.00"))
+
+    @property
+    def total_amount_received(self) -> Decimal:
+        return sum((b.amount_received or Decimal("0.00") for b in self.bills), Decimal("0.00"))
+
+    @property
+    def total_pending_amount(self) -> Decimal:
+        return sum((b.pending_amount for b in self.bills), Decimal("0.00"))
+
+    @property
+    def overall_payment_status(self) -> str:
+        return "Payment Pending" if self.total_pending_amount > Decimal("0.00") else "Paid"
 
 
-class Bill(Base):
-    __tablename__ = "bills"
+class CustomerBill(Base):
+    """
+    Individual bill record for a customer.
+    Only Final Deal Amount and Amount Received are stored.
+    Unless `has_pending` is explicitly enabled, Amount Received is the closed final amount
+    with zero pending balance. When `has_pending` is enabled, Pending = Final Deal - Received.
+    """
+    __tablename__ = "customer_bills"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    bill_number = Column(String(50), unique=True, nullable=False, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    bill_number = Column(String(100), nullable=False, index=True)
     bill_date = Column(Date, default=date.today, nullable=False, index=True)
-    subtotal = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    discount = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    tax_rate = Column(Numeric(5, 2), default=Decimal("0.00"), nullable=False)
-    tax_amount = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    grand_total = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
+    final_deal_amount = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
     amount_received = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    outstanding_amount = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    payment_status = Column(String(20), default="PENDING", nullable=False, index=True)  # 'PENDING', 'PARTIALLY_PAID', 'PAID'
-    bill_status = Column(String(20), default="FINALIZED", nullable=False, index=True)  # 'DRAFT', 'FINALIZED', 'CANCELLED'
+    has_pending = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    __table_args__ = (
+        UniqueConstraint("customer_id", "bill_number", name="uq_customer_bill_number"),
+    )
+
     customer = relationship("Customer", back_populates="bills")
-    items = relationship("BillItem", back_populates="bill", cascade="all, delete-orphan")
-    payments = relationship("Payment", back_populates="bill")
+    items = relationship(
+        "BillItem",
+        back_populates="bill",
+        cascade="all, delete-orphan",
+        order_by="BillItem.id.asc()",
+    )
+    payments = relationship(
+        "BillPayment",
+        back_populates="bill",
+        cascade="all, delete-orphan",
+        order_by="BillPayment.payment_date.desc(), BillPayment.id.desc()",
+    )
+
+    @property
+    def effective_final_amount(self) -> Decimal:
+        """If pending tracking is OFF, Amount Received is the final closed amount."""
+        if self.has_pending:
+            return self.final_deal_amount or Decimal("0.00")
+        return self.amount_received or Decimal("0.00")
+
+    @property
+    def pending_amount(self) -> Decimal:
+        if not self.has_pending:
+            return Decimal("0.00")
+        deal = self.final_deal_amount or Decimal("0.00")
+        rec = self.amount_received or Decimal("0.00")
+        diff = deal - rec
+        return diff if diff > Decimal("0.00") else Decimal("0.00")
+
+    @property
+    def payment_status(self) -> str:
+        return "Payment Pending" if self.pending_amount > Decimal("0.00") else "Paid"
 
 
 class BillItem(Base):
+    """Line item purchased on a customer bill (either from dropdown or custom textbox)."""
     __tablename__ = "bill_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    bill_id = Column(Integer, ForeignKey("bills.id"), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
-    product_name = Column(String(200), nullable=False)
-    quantity = Column(Numeric(12, 2), nullable=False)
-    unit_price = Column(Numeric(12, 2), nullable=False)
-    discount_amount = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    line_total = Column(Numeric(12, 2), nullable=False)
+    bill_id = Column(Integer, ForeignKey("customer_bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    entry_type = Column(String(20), nullable=False, default="DROPDOWN")  # 'DROPDOWN' or 'CUSTOM'
+    category_id = Column(Integer, ForeignKey("item_categories.id", ondelete="SET NULL"), nullable=True)
+    product_id = Column(Integer, ForeignKey("item_products.id", ondelete="SET NULL"), nullable=True)
+    pack_size_id = Column(Integer, ForeignKey("item_pack_sizes.id", ondelete="SET NULL"), nullable=True)
 
-    bill = relationship("Bill", back_populates="items")
-    product = relationship("Product", back_populates="bill_items")
+    # Snapshots ensure customer bill history remains intact even if dropdown items change
+    category_name = Column(String(150), nullable=True)
+    product_name = Column(String(250), nullable=False)
+    pack_size = Column(String(100), nullable=True)
+    quantity = Column(Numeric(10, 2), default=Decimal("1.00"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    bill = relationship("CustomerBill", back_populates="items")
+
+    @property
+    def display_label(self) -> str:
+        qty_str = f"{int(self.quantity)}" if self.quantity == int(self.quantity) else f"{self.quantity:.2f}"
+        if self.pack_size:
+            return f"{self.product_name} – {self.pack_size} (Qty: {qty_str})"
+        return f"{self.product_name} (Qty: {qty_str})"
 
 
-class Payment(Base):
-    __tablename__ = "payments"
+class BillPayment(Base):
+    """Payment log entry for partial or full settlements on a customer bill."""
+    __tablename__ = "bill_payments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    payment_number = Column(String(50), unique=True, nullable=False, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
-    bill_id = Column(Integer, ForeignKey("bills.id"), nullable=True, index=True)
+    bill_id = Column(Integer, ForeignKey("customer_bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
     payment_date = Column(Date, default=date.today, nullable=False, index=True)
-    payment_method = Column(String(30), default="CASH", nullable=False)  # 'CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'OTHER'
-    transaction_reference = Column(String(100), nullable=True)
+    payment_method = Column(String(30), default="Cash", nullable=False)
     notes = Column(Text, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    is_reversal = Column(Boolean, default=False, nullable=False)
+    created_by = Column(String(100), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    bill = relationship("CustomerBill", back_populates="payments")
     customer = relationship("Customer", back_populates="payments")
-    bill = relationship("Bill", back_populates="payments")
-
-
-class OtherShop(Base):
-    __tablename__ = "other_shops"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    shop_code = Column(String(50), unique=True, nullable=False, index=True)
-    shop_name = Column(String(150), nullable=False, index=True)
-    owner_name = Column(String(100), nullable=True)
-    mobile = Column(String(20), nullable=True)
-    address = Column(Text, nullable=True)
-    notes = Column(Text, nullable=True)
-    status = Column(String(20), default="active", nullable=False)
-    is_deleted = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    issues = relationship("ShopIssue", back_populates="other_shop")
-    returns = relationship("ShopReturn", back_populates="other_shop")
-
-
-class ShopIssue(Base):
-    __tablename__ = "shop_issues"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    issue_number = Column(String(50), unique=True, nullable=False, index=True)
-    shop_id = Column(Integer, ForeignKey("other_shops.id"), nullable=False, index=True)
-    issue_date = Column(Date, default=date.today, nullable=False, index=True)
-    reference_number = Column(String(100), nullable=True)
-    notes = Column(Text, nullable=True)
-    status = Column(String(30), default="PENDING", nullable=False, index=True)
-    # 'PENDING', 'PARTIALLY_RETURNED', 'COMPLETED'
-    completed_at = Column(DateTime, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    other_shop = relationship("OtherShop", back_populates="issues")
-    items = relationship("ShopIssueItem", back_populates="issue", cascade="all, delete-orphan")
-    returns = relationship("ShopReturn", back_populates="issue")
-
-
-class ShopIssueItem(Base):
-    __tablename__ = "shop_issue_items"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    issue_id = Column(Integer, ForeignKey("shop_issues.id"), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
-    quantity_issued = Column(Numeric(12, 2), nullable=False)
-    quantity_returned = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    unit_price = Column(Numeric(12, 2), default=Decimal("0.00"), nullable=False)
-    status = Column(String(30), default="PENDING", nullable=False)
-    # 'PENDING', 'PARTIALLY_RETURNED', 'COMPLETED'
-
-    issue = relationship("ShopIssue", back_populates="items")
-    product = relationship("Product")
-
-
-class ShopReturn(Base):
-    __tablename__ = "shop_returns"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    return_number = Column(String(50), unique=True, nullable=False, index=True)
-    shop_id = Column(Integer, ForeignKey("other_shops.id"), nullable=False, index=True)
-    issue_id = Column(Integer, ForeignKey("shop_issues.id"), nullable=False, index=True)
-    return_date = Column(Date, default=date.today, nullable=False, index=True)
-    condition_notes = Column(Text, nullable=True)
-    notes = Column(Text, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    other_shop = relationship("OtherShop", back_populates="returns")
-    issue = relationship("ShopIssue", back_populates="returns")
-    items = relationship("ShopReturnItem", back_populates="return_obj", cascade="all, delete-orphan")
-
-
-class ShopReturnItem(Base):
-    __tablename__ = "shop_return_items"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    return_id = Column(Integer, ForeignKey("shop_returns.id"), nullable=False, index=True)
-    issue_item_id = Column(Integer, ForeignKey("shop_issue_items.id"), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
-    quantity_returned = Column(Numeric(12, 2), nullable=False)
-    condition_notes = Column(Text, nullable=True)
-
-    return_obj = relationship("ShopReturn", back_populates="items")
-    product = relationship("Product")
-    issue_item = relationship("ShopIssueItem")
 
 
 class AuditLog(Base):
+    """Security & change audit trail."""
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=True)
-    username = Column(String(100), default="system", nullable=False, index=True)
-    action = Column(String(50), nullable=False, index=True)
-    record_type = Column(String(50), nullable=False, index=True)
-    record_id = Column(String(100), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    username = Column(String(50), nullable=False, default="system")
+    action = Column(String(100), nullable=False, index=True)
+    record_type = Column(String(50), nullable=False)
+    record_id = Column(String(100), nullable=True)
     details = Column(Text, nullable=True)
-    ip_address = Column(String(50), nullable=True)
+    ip_address = Column(String(45), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
-class BusinessSetting(Base):
-    __tablename__ = "business_settings"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    setting_key = Column(String(100), unique=True, nullable=False, index=True)
-    setting_value = Column(Text, nullable=False)
-    description = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class BackupLog(Base):
+    """Tracks manual/automated database backups."""
     __tablename__ = "backup_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     filename = Column(String(255), nullable=False)
     file_size_bytes = Column(Integer, default=0)
-    backup_type = Column(String(20), default="MANUAL", nullable=False)
-    status = Column(String(20), default="SUCCESS", nullable=False)
+    backup_type = Column(String(30), default="MANUAL")
+    status = Column(String(20), default="SUCCESS")
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
